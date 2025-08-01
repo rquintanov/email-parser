@@ -1,7 +1,9 @@
-const allowCORS = (res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+import { NextResponse } from "next/server";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
 };
 
 const removeDiacritics = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -16,21 +18,19 @@ function formatEmailText(input) {
   const IGNORE = new Set(["espacio","espacios","todo","junto","todojunto","sin","y","con","la","el","los","las","por","favor","porfavor"]);
 
   const MAP_SINGLE = {
-    "@": "@", "arroba": "@", "at": "@",
-    "punto": ".", "dot": ".", "puntos": ".",
+    "@": "@", "arroba": "@", "arzroba": "@", "aroba": "@", "at": "@",
+    "punto": ".", "puntos": ".", "dot": ".",
     "guion": "-", "guionmedio": "-", "guion-medio": "-", "dash": "-", "hyphen": "-",
     "guionbajo": "_", "underscore": "_",
     "mas": "+", "plus": "+"
   };
 
   let out = "", i = 0, seenAt = false;
-
   while (i < rawTokens.length) {
     const t = rawTokens[i];
 
     if (IGNORE.has(t)) { i++; continue; }
 
-    // bi-gramas
     if (t === "guion" && i + 1 < rawTokens.length) {
       const next = rawTokens[i + 1];
       if (next === "bajo") { out += "_"; i += 2; continue; }
@@ -79,31 +79,20 @@ function validateEmail(email) {
   return { isValid: localOk && domainOk, confidence, local, domain };
 }
 
-module.exports = async (req, res) => {
-  allowCORS(res);
-  if (req.method === "OPTIONS") { res.status(204).end(); return; }
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS });
+}
 
-  let text = "";
-  try {
-    if (req.method === "GET") {
-      text = (req.query && req.query.text) || "";
-    } else if (req.method === "POST") {
-      if (!req.body) {
-        const chunks = [];
-        for await (const chunk of req) chunks.push(chunk);
-        const raw = Buffer.concat(chunks).toString("utf8");
-        text = JSON.parse(raw || "{}").text || "";
-      } else {
-        text = req.body.text || "";
-      }
-    } else {
-      res.status(405).json({ error: "Method Not Allowed" });
-      return;
-    }
-    if (!text) { res.status(400).json({ error: 'Falta el parámetro "text" (string).' }); return; }
-    res.status(200).json(formatEmailText(text));
-  } catch (e) {
-    res.status(500).json({ error: "Internal Server Error", details: String(e) });
-  }
-};
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const text = searchParams.get("text") || "";
+  if (!text) return NextResponse.json({ error: 'Falta el parámetro "text".' }, { status: 400, headers: CORS });
+  return NextResponse.json(formatEmailText(text), { headers: CORS });
+}
 
+export async function POST(req) {
+  const body = await req.json().catch(() => ({}));
+  const text = body.text || "";
+  if (!text) return NextResponse.json({ error: 'Falta el parámetro "text".' }, { status: 400, headers: CORS });
+  return NextResponse.json(formatEmailText(text), { headers: CORS });
+}
