@@ -1,6 +1,5 @@
 {
-  "name": "normalize-email-api",
+  "name": "email-parser",
   "version": "1.0.0",
-  "private": true,
-  "license": "MIT"
+  "private": true
 }
