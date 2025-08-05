@@ -44,30 +44,46 @@ function formatEmailText(input) {
   let seenAt = false;
 
   while (i < rawTokens.length) {
-    const t = rawTokens[i];
+  const t = rawTokens[i];
 
-    if (IGNORE.has(t)) { i++; continue; }
+  // Ignorar palabras de relleno
+  if (IGNORE.has(t)) { i++; continue; }
 
-    // Bi-gramas “guion bajo / medio”
-    if (t === "guion" && i + 1 < rawTokens.length) {
-      const next = rawTokens[i + 1];
-      if (next === "bajo")               { out += "_"; i += 2; continue; }
-      if (next === "medio" || next === "alto") { out += "-"; i += 2; continue; }
-    }
-
-    if (MAP_SINGLE[t]) {
-      const sym = MAP_SINGLE[t];
-      if (sym === "@") { if (!seenAt) { out += "@"; seenAt = true; } }
-      else              { out += sym; }
-      i++; continue;
-    }
-
-    if (t === "." || t === "_" || t === "-" || t === "+") { out += t; i++; continue; }
-
-    // Resto de tokens: solo caracteres válidos de email
-    out += t.replace(/[^a-z0-9._+-]/g, "");
-    i++;
+  // ---------- bi-gramas “guion bajo / medio” ----------
+  if (t === "guion" && i + 1 < rawTokens.length) {
+    const next = rawTokens[i + 1];
+    if (next === "bajo") {      out += "_"; i += 2; continue; }
+    if (next === "medio" ||
+        next === "alto") {      out += "-"; i += 2; continue; }
   }
+
+  // ---------- mapeos directos ----------
+  if (MAP_SINGLE[t]) {
+    const sym = MAP_SINGLE[t];
+    if (sym === "@") {
+      if (!seenAt) { out += "@"; seenAt = true; }
+    } else {
+      out += sym;
+    }
+    i++;
+    continue;
+  }
+
+  // ---------- símbolos sueltos ----------
+  if (t === "." || t === "_" || t === "-" || t === "+") {
+    out += t;
+    i++;
+    continue;
+  }
+
+  // ---------- NUEVO: token contiene “@” pegada ----------
+  if (t.includes("@")) seenAt = true;
+
+  // ---------- resto de tokens ----------
+  // Conserva caracteres de email, incluidos @ _ . + -
+  out += t.replace(/[^a-z0-9._+@-]/g, "");
+  i++;
+}
 
   // 4) Limpiezas básicas
   out = out
